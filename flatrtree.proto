@@ -1,0 +1,67 @@
+syntax = "proto3";
+package internal;
+
+option go_package = "internal/";
+
+message RTree {
+    //
+    // `count` is the number of items in the tree.
+    //
+    uint32 count = 1;
+
+    //
+    // `refs[:count]` are external references to the items being indexed.
+    // The values are generally determined by insertion order, but can be
+    // any 64-bit integer.
+    //
+    // `refs[count:]` are internal references to positions in the `boxes`
+    // list, and represent the start position of child bounding boxes for
+    // a node. We can retrieve sibling boxes using pairwise references:
+    //
+    //     boxes[refs[i]:refs[i+1]]
+    //
+    // The position of a reference in `refs` corresponds to the position
+    // of its bounding box in `boxes`. The reference for the bounding box
+    // at `boxes[i:i+4]` is `refs[i/4]`.
+    //
+    // The layout of `refs` might look like this, where the number of
+    // levels depends on node size and the number of items:
+    // +-----------------------------------------------------------+
+    // |      level 3 (leaves)     |    level 2   | level 1 | root |
+    // +-----------------------------------------------------------+
+    //                             ^
+    //                        refs[count]
+    //
+    repeated int64 refs = 2;
+
+    //
+    // `boxes` is a flat list of 2-D axis-aligned bounding boxes.
+    //
+    // `boxes[:count*4]` are the external item bounding boxes.
+    // `boxes[count*4:]` are the internal node bounding boxes.
+    //
+    // The layout of `boxes` might look like this, where the number of
+    // levels depends on node size and the number of items:
+    // +-----------------------------------------------------------+
+    // |      level 3 (leaves)     |    level 2   | level 1 | root |
+    // +-----------------------------------------------------------+
+    //                             ^
+    //                       boxes[count*4]
+    //
+    // Bounding boxes are encoded as min point and max point:
+    //
+    //          xmin, ymin, xmax, ymax
+    //
+    // The coordinate values are multiplied by `10^precision` and
+    // stored as signed, 64-bit integers in order to take advantage
+    // of varint encoding to reduce the size in bytes. This technique
+    // is borrowed from the Geobuf protobuf format.
+    //
+    repeated sint64 boxes = 3;
+
+    //
+    // `precision` is used to convert 64-bit float coordinates
+    // to/from signed integers.
+    //
+    uint32 precision = 4;
+}
